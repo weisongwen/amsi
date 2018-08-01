@@ -1,0 +1,7 @@
+<library path="lib/libamsi_nodelet">
+<class name="amsi/amsiNodelet" type="amsi::amsiNodelet" base_class_type="nodelet::Nodelet" />
+</library>
+
+<library path="lib/libglobalmap_server_nodelet">
+<class name="amsi/GlobalmapServerNodelet" type="amsi::GlobalmapServerNodelet" base_class_type="nodelet::Nodelet" />
+</library>
