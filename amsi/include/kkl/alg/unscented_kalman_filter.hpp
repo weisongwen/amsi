@@ -1,6 +1,6 @@
 /**
  * UnscentedKalmanFilterX.hpp
- * @author koide
+ * @author Weisong WEN
  * 16/02/01
  **/
 #ifndef KKL_UNSCENTED_KALMAN_FILTER_X_HPP
