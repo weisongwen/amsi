@@ -5,7 +5,7 @@
 - LiDAR: Mapping with real-time point clouds and offline point clouds 
 - HD Map: Pre-built offline point cloud map
 
-This package is under development.
+This package is under development. Currently, the mapping between the LiDAR and HD Map is provided by Autoware. LiDAROdometry pacakge is reserved for further.
 
 ## Spec Recommendation
 
