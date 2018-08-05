@@ -6,10 +6,10 @@
 
 This package is under development. Currently, the mapping between the LiDAR and HD Map is provided by Autoware. This is curently robust with: INS/LiDAR/HD Map
 
--state vector: 
--state = [px, py, pz, vx, vy, vz, qw, qx, qy, qz, acc_bias_x, acc_bias_y, acc_bias_z, gyro_bias_x, gyro_bias_y, gyro_bias_z]
--control = [acc_x,acc_y,acc_z,gyro_x,gyro_y,gyro_z]
--measurement=[lx,ly,lz,lqw,lqx,lqy,lqz]
+## state vector, control input and measurements: 
+- state = [px, py, pz, vx, vy, vz, qw, qx, qy, qz, acc_bias_x, acc_bias_y, acc_bias_z, gyro_bias_x, gyro_bias_y, gyro_bias_z]
+- control = [acc_x,acc_y,acc_z,gyro_x,gyro_y,gyro_z]
+- measurement=[lx,ly,lz,lqw,lqx,lqy,lqz]
 
 
 ## Spec Recommendation
