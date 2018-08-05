@@ -38,7 +38,7 @@ public:
       cool_time_duration(cool_time_duration)
   {
     process_noise = Eigen::MatrixXf::Identity(16, 16);
-    process_noise.middleRows(0, 3) *= 1.0;
+    process_noise.middleRows(0, 3) *= 1.0; // P.middleRows(i, rows)   // P(i+1:i+rows, :)
     process_noise.middleRows(3, 3) *= 1.0;
     process_noise.middleRows(6, 4) *= 0.5;
     process_noise.middleRows(10, 3) *= 1e-6;
