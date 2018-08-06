@@ -30,6 +30,7 @@ All the parameters are listed in *launch/hdl_graph_slam.launch* as ros params.
 - PCL 1.7
 - g2o
 
+- g2o with ROS jade
 Note that ***hdl_graph_slam*** cannot be built with older g2o libraries (such as ros-indigo-libg2o). ~~Install the latest g2o:~~
 The latest g2o causes segfault. Use commit *a48ff8c42136f18fbe215b02bfeca48fa0c67507* instead of the latest one:
 
@@ -43,6 +44,15 @@ make -j8
 sudo make install
 ```
 
+- g2o with ROS kinetic
+ 
+```bash
+1. sudo apt-get install ros-kinetic-libg2o 
+2. sudo cp -r /opt/ros/kinetic/lib/libg2o_* /usr/local/lib 
+3. sudo cp -r /opt/ros/kinetic/include/g2o /usr/local/include
+```
+
+ 
 The following ROS packages are required:
 - geodesy
 - nmea_msgs

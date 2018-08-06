@@ -23,7 +23,12 @@
 #include <pclomp/ndt_omp.h>
 
 #include <amsi/pose_estimator.hpp>
+#include <amsi/gnss_tools.hpp>
 
+#include <nmea_msgs/Sentence.h> // message from DGPS of University of California, Berkeley.
+#include <sensor_msgs/NavSatFix.h>
+
+#include <Eigen/Dense>
 
 namespace amsi {
 
@@ -49,14 +54,25 @@ public:
     invert_imu = private_nh.param<bool>("invert_imu", false);
     if(use_imu) {
       NODELET_INFO("enable imu-based prediction");
-      imu_sub = mt_nh.subscribe("/gpsimu_driver/imu_data", 256, &amsiNodelet::imu_callback, this);
+      imu_sub = mt_nh.subscribe("/imu_raw", 256, &amsiNodelet::imu_callback, this);
     }
-    points_sub = mt_nh.subscribe("/velodyne_points_0", 5, &amsiNodelet::points_callback, this);
+
+    use_dgps = private_nh.param<bool>("use_dgps", true);
+    if(use_dgps) {
+      NODELET_INFO("enable dgps-based correction");
+      nmea_sub = nh.subscribe("/nmea_sentence", 32, &amsiNodelet::nmea_callback, this);
+    }
+
+    points_sub = mt_nh.subscribe("/points_raw", 5, &amsiNodelet::points_callback, this);
     globalmap_sub = nh.subscribe("/points_map", 1, &amsiNodelet::globalmap_callback, this);
     initialpose_sub = nh.subscribe("/initialpose", 8, &amsiNodelet::initialpose_callback, this);
     ndtpose_sub = nh.subscribe("/ndt_pose", 8, &amsiNodelet::ndtpose_callback, this);
+    
 
-    pose_pub = nh.advertise<nav_msgs::Odometry>("/odom", 5, false);
+    pose_pub = nh.advertise<nav_msgs::Odometry>("/gnss_ins", 5, false); // UKF-based GNSS/INS fusion
+    enu_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("/gnss_enu", 5, false);
+    gnss_navsat_pose_pub = nh.advertise<sensor_msgs::NavSatFix>("/gnss_navsat", 5, false);
+    gnss_ins_navsat_pose_pub = nh.advertise<sensor_msgs::NavSatFix>("/gnss_ins_navsat", 5, false);
     aligned_pub = nh.advertise<sensor_msgs::PointCloud2>("/aligned_points", 5, false);
   }
 
@@ -116,6 +132,90 @@ private:
   }
 
   /**
+   * @brief callback for DGPS in nmea format
+   * @param DGPS message
+   */
+  void nmea_callback(const nmea_msgs::SentenceConstPtr& nmea_msg) {
+    std::lock_guard<std::mutex> lock(dgps_data_mutex);
+    std::vector<std::string> str_vec_ptr;
+    std::string token;
+    std::stringstream ss(nmea_msg->sentence);
+    bool find_SOL_COMPUTED =0;
+    while (getline(ss, token, ' '))
+    {
+      if(token == "SOL_COMPUTED") // solutions are computed 
+      {
+        // std::cout<<"message obtained"<<std::endl;
+        find_SOL_COMPUTED = true;
+      }
+      if( find_SOL_COMPUTED ) // find flag SOL_COMPUTED
+      {
+        str_vec_ptr.push_back(token);
+      }
+    }
+
+    if(find_SOL_COMPUTED)
+    {
+      sensor_msgs::NavSatFix navfix_ ;
+      navfix_.header = nmea_msg->header;
+      std::cout << std::setprecision(17);
+      double lat = strtod((str_vec_ptr[2]).c_str(), NULL);
+      double lon = strtod((str_vec_ptr[3]).c_str(), NULL);
+      double alt = strtod((str_vec_ptr[4]).c_str(), NULL);
+      std::cout << std::setprecision(17);
+
+      navfix_.latitude = lat;
+      navfix_.longitude = lon;
+      navfix_.altitude = alt;
+      gnss_navsat_pose_pub.publish(navfix_); // gnss standalone 
+      if(ini_navf.latitude == NULL)
+      {
+        ini_navf = navfix_;
+        std::cout<<"ini_navf.header  -> "<<ini_navf.header<<std::endl;
+        originllh.resize(3, 1);
+        originllh(0) = navfix_.longitude;
+        originllh(1) = navfix_.latitude;
+        originllh(2) = navfix_.altitude;
+      }
+      dgps_data.push_back(navfix_);
+      Eigen::MatrixXd curLLh; // 
+      curLLh.resize(3, 1);
+      curLLh(0) = navfix_.longitude;
+      curLLh(1) = navfix_.latitude;
+      curLLh(2) = navfix_.altitude;
+
+      Eigen::MatrixXd ecef; // 
+      ecef.resize(3, 1);
+      ecef = gnss_tools_.llh2ecef(curLLh);
+      ENU_.header = navfix_.header;
+      Eigen::MatrixXd eigenENU;; // 
+      eigenENU.resize(3, 1);
+      eigenENU = gnss_tools_.ecef2enu(originllh,ecef);
+      ENU_.pose.position.x = eigenENU(0);
+      ENU_.pose.position.y = eigenENU(1);
+      ENU_.pose.position.z = eigenENU(2);
+      ENU_.pose.orientation.x = 0.23;
+      ENU_.pose.orientation.y = 0.25;
+      ENU_.pose.orientation.z = 0.12;
+      ENU_.pose.orientation.w = 0.5;
+      enu_pose_pub.publish(ENU_); // publish dgps in enu
+      dgpsENU_data.push_back(ENU_);
+
+      std::cout << std::setprecision(3);
+      auto cur_tim = ros::WallTime::now();
+
+      ecef = gnss_tools_.enu2ecef(originllh,eigenENU);
+      curLLh = gnss_tools_.ecef2llh(ecef);
+      navfix_.longitude = curLLh(0);
+      navfix_.latitude  = curLLh(1);
+      navfix_.altitude  = curLLh(2);
+      gnss_ins_navsat_pose_pub.publish(navfix_); // ukf-based 
+
+      std::cout<<"  E: "<<float(eigenENU(0))<<"  N: "<<float(eigenENU(1))<<"  U: "<<float(eigenENU(2))<<std::endl;
+    }
+  }
+
+  /**
    * @brief callback for point cloud data
    * @param points_msg
    */
@@ -126,10 +226,10 @@ private:
       return;
     }
 
-    if(!globalmap) {
-      NODELET_ERROR("globalmap has not been received!!");
-      return;
-    }
+    // if(!globalmap) {
+    //   NODELET_ERROR("globalmap has not been received!!");
+    //   return;
+    // }
 
     const auto& stamp = points_msg->header.stamp;
     pcl::PointCloud<PointT>::Ptr cloud(new pcl::PointCloud<PointT>());
@@ -145,6 +245,7 @@ private:
     // predict
     if(!use_imu) {
       pose_estimator->predict(stamp, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero()); // no imu, constant vel model
+      std::cout<<"const velocity prediction"<<std::endl;
     } else {
       std::lock_guard<std::mutex> lock(imu_data_mutex);
       auto imu_iter = imu_data.begin();
@@ -162,7 +263,7 @@ private:
 
     // correct
     auto t1 = ros::WallTime::now();
-    auto aligned = pose_estimator->correct(filtered,ndt_pose);
+    auto aligned = pose_estimator->correct(filtered,ENU_);
     auto t2 = ros::WallTime::now();
 
     processing_time.push_back((t2 - t1).toSec());
@@ -245,7 +346,7 @@ private:
   void publish_odometry(const ros::Time& stamp, const Eigen::Matrix4f& pose) {
     // broadcast the transform over tf
     geometry_msgs::TransformStamped odom_trans = matrix2transform(stamp, pose, "map", "velodyne");
-    pose_broadcaster.sendTransform(odom_trans);
+    // pose_broadcaster.sendTransform(odom_trans);
 
     // publish the transform
     nav_msgs::Odometry odom;
@@ -303,19 +404,33 @@ private:
 
   bool use_imu;
   bool invert_imu;
+  bool use_dgps;
+
   ros::Subscriber imu_sub;
   ros::Subscriber points_sub;
   ros::Subscriber globalmap_sub;
   ros::Subscriber initialpose_sub;
   ros::Subscriber ndtpose_sub; // subscribe /ndt_pose from Autoware
+  ros::Subscriber nmea_sub; // nmea sentence from DGPS
 
   ros::Publisher pose_pub;
+  ros::Publisher enu_pose_pub; // enu publisher
+  ros::Publisher gnss_navsat_pose_pub; // navsat 
+  ros::Publisher gnss_ins_navsat_pose_pub; // navsat
   ros::Publisher aligned_pub;
   tf::TransformBroadcaster pose_broadcaster;
 
   // imu input buffer
   std::mutex imu_data_mutex;
+  std::mutex dgps_data_mutex;
   std::vector<sensor_msgs::ImuConstPtr> imu_data;
+  std::vector<sensor_msgs::NavSatFix> dgps_data;
+  geometry_msgs::PoseStamped ENU_; // dgps pose in ENU
+  std::vector<geometry_msgs::PoseStamped> dgpsENU_data;
+  
+  sensor_msgs::NavSatFix ini_navf ; // initial sensor msg
+  Eigen::MatrixXd originllh; // origin llh
+  
 
   // ndt pose from Autoware
   geometry_msgs::PoseStamped ndt_pose;
@@ -328,6 +443,9 @@ private:
   // pose estimator
   std::mutex pose_estimator_mutex;
   std::unique_ptr<amsi::PoseEstimator> pose_estimator;
+
+  // gnss_tools
+  GNSS_Tools gnss_tools_;
 
   // processing time buffer
   boost::circular_buffer<double> processing_time;

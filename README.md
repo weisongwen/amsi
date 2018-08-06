@@ -1,10 +1,26 @@
 # Adaptive Multi-sensor Integration for Autonomous vehicles (GNSS/INS/LiDAR/HD Map)
 
 - INS: Pose Predictor
-- LiDAR: Mapping with real-time point clouds and offline point clouds 
-- HD Map: Pre-built offline point cloud map
+- GNSS: ENU coordinate
 
-This package is under development. Currently, the mapping between the LiDAR and HD Map is provided by Autoware. This is curently robust with: INS/LiDAR/HD Map
+This package is used for GNSS/INS integration for data collected in Berkeley.
+
+subscriber: 
+
+```
+/points_raw
+/nmes_sentence # parse first, then used by ENU
+/imu_raw
+```
+
+publisher: 
+
+```
+pose_pub = nh.advertise<nav_msgs::Odometry>("/gnss_ins", 5, false); // UKF-based GNSS/INS fusion
+enu_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("/gnss_enu", 5, false);
+gnss_navsat_pose_pub = nh.advertise<sensor_msgs::NavSatFix>("/gnss_navsat", 5, false);
+gnss_ins_navsat_pose_pub = nh.advertise<sensor_msgs::NavSatFix>("/gnss_ins_navsat", 5, false);
+```
 
 ## state vector, control input and measurements: 
 - state = [px, py, pz, vx, vy, vz, qw, qx, qy, qz, acc_bias_x, acc_bias_y, acc_bias_z, gyro_bias_x, gyro_bias_y, gyro_bias_z]

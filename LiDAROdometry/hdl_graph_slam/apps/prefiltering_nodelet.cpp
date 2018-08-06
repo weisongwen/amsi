@@ -29,7 +29,7 @@ public:
 
     initialize_params();
 
-    points_sub = nh.subscribe("/velodyne_points_0", 64, &PrefilteringNodelet::cloud_callback, this);
+    points_sub = nh.subscribe("/points_raw", 64, &PrefilteringNodelet::cloud_callback, this);
     points_pub = nh.advertise<sensor_msgs::PointCloud2>("/filtered_points", 32);
   }
 

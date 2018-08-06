@@ -3,7 +3,7 @@
   <!-- arguments -->
   <arg name="nodelet_manager" default="velodyne_nodelet_manager" />
   <arg name="enable_floor_detection" default="true" />
-  <arg name="enable_gps" default="true" />
+  <arg name="enable_gps" default="false" />
 
   <!-- in case you use velodyne_driver, comment out the following line -->
   <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen"/>

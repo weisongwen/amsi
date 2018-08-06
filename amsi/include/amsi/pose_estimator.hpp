@@ -122,6 +122,11 @@ public:
     q.z() = pose_msg.pose.orientation.z;
     q.w() = pose_msg.pose.orientation.w;
 
+    q.x() = 0.23;
+    q.y() = 0.2;
+    q.z() = 0.25;
+    q.w() = 0.3;
+
     if(quat().vec().dot(q.vec()) < 0.0f) {
       q.coeffs() *= -1.0f;
     }

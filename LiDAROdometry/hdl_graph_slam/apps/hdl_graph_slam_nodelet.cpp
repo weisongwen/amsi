@@ -107,7 +107,7 @@ public:
 
     if(private_nh.param<bool>("enable_gps", true)) {
       gps_sub = nh.subscribe("/gps/geopoint", 32, &HdlGraphSlamNodelet::gps_callback, this);
-      nmea_sub = nh.subscribe("/gpsimu_driver/nmea_sentence", 32, &HdlGraphSlamNodelet::nmea_callback, this);
+      nmea_sub = nh.subscribe("/nmea_sentence", 32, &HdlGraphSlamNodelet::nmea_callback, this);
     }
 
     // publishers
@@ -218,6 +218,15 @@ private:
 
   void nmea_callback(const nmea_msgs::SentenceConstPtr& nmea_msg) {
     GPRMC grmc = nmea_parser->parse(nmea_msg->sentence);
+    
+
+    std::vector<std::string> str_vec_ptr;
+    std::string token;
+    std::stringstream ss(nmea_msg->sentence);
+
+
+
+
 
     if(grmc.status != 'A') {
       return;

@@ -18,7 +18,7 @@ public:
   typedef Eigen::Quaternion<T> Quaterniont;
 public:
   PoseSystem() {
-    dt = 0.01;
+    dt = 0.01; // 0.01
   }
 
   // system equation
@@ -43,7 +43,7 @@ public:
     Vector3t g(0.0f, 0.0f, -9.80665f);
     Vector3t acc_ = raw_acc - acc_bias;
     Vector3t acc = qt * acc_;
-    next_state.middleRows(3, 3) = vt; // + (acc - g) * dt;		// acceleration didn't contribute to accuracy due to large noise
+    next_state.middleRows(3, 3) = vt + (acc - g) * dt; // + (acc - g) * dt;		// acceleration didn't contribute to accuracy due to large noise
 
     // orientation
     Vector3t gyro = raw_gyro - gyro_bias;
